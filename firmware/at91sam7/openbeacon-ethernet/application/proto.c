@@ -462,7 +462,8 @@ vnRFLogFileFileTask (void *parameter)
   static FIL fil;
   static FATFS fatfs;
   static FILINFO filinfo;
-  static char logfile[] = "LOGFILE_.BIN";
+  static char logfile[] = "XXX_YYY.BIN";
+  int logfile_count;
   portTickType time, time_old;
 
   /* delay SD card init by 5 seconds */
@@ -472,7 +473,15 @@ vnRFLogFileFileTask (void *parameter)
   memset (&fatfs, 0, sizeof (fatfs));
   f_mount (0, &fatfs);
 
-  for (logfile[7] = 'A'; logfile[7] < 'Z'; logfile[7]++)
+  logfile[0] = '0' + (env.e.reader_id / 100);
+  logfile[1] = '0' + ((env.e.reader_id / 10) % 10);
+  logfile[2] = '0' + (env.e.reader_id % 10);
+
+  for (logfile_count = 1; logfile_count<1000; logfile_count++) {
+    logfile[4] = '0' + (logfile_count / 100);
+    logfile[5] = '0' + ((logfile_count / 10) % 10);
+    logfile[6] = '0' + (logfile_count % 10);
+    
     switch (res = f_stat (logfile, &filinfo))
       {
 
@@ -485,8 +494,10 @@ vnRFLogFileFileTask (void *parameter)
       case FR_INVALID_NAME:
 	/* opening new file for write access */
 	debug_printf ("\nCreating logfile (%s).\n", logfile);
-	if (f_open (&fil, logfile, FA_WRITE | FA_CREATE_ALWAYS))
+	if (f_open (&fil, logfile, FA_WRITE | FA_CREATE_ALWAYS)) {
 	  debug_printf ("\nfailed to create file\n");
+          logfile_count = 1000;
+          } 
 	else
 	  {
 	    /* Enable Debug output as we were able to open the log file */
@@ -522,7 +533,9 @@ vnRFLogFileFileTask (void *parameter)
       default:
 	debug_printf ("Error (%i) while searching for logfile '%s'\n", res,
 		      logfile);
+        logfile_count = 1000;
       }
+    }
 
   /* error blinking - twice per second with 0.8s spacing */
   while (1)
