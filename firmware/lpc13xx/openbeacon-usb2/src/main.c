@@ -148,7 +148,7 @@ pin_init (void)
   GPIOSetDir (0, 0, 0);		//IN
 
   LPC_IOCON->PIO0_1 = 0;
-  GPIOSetDir (0, 1, 0);		//IN
+  GPIOSetDir (0, 1, 0);		//IN BUTTON0
 
   LPC_IOCON->PIO1_8 = 0;
   GPIOSetDir (1, 8, 1);		//OUT
@@ -203,7 +203,7 @@ pin_init (void)
   GPIOSetValue (1, 11, 0);
 
   LPC_IOCON->PIO1_4 = 0x80;
-  GPIOSetDir (1, 4, 0);		// IN
+  GPIOSetDir (1, 4, 0);		// IN BUTTON1
 
   LPC_IOCON->ARM_SWDIO_PIO1_3 = 0x81;
   GPIOSetDir (1, 3, 1);		// OUT
@@ -492,6 +492,10 @@ main (void)
   /* get current FLASH storage write postition */
   g_storage_items = storage_items ();
 
+  //@@ Erase the flash memory
+  storage_erase();
+  g_storage_items = 0;
+  
   /* initialize power management */
   pmu_init ();
 
@@ -538,14 +542,15 @@ main (void)
   bzero (&acc_lowpass, sizeof (acc_lowpass));
   bzero (&fifo_buf, sizeof (fifo_buf));
   firstrun_done = 0;
-  moving = 0;
+  moving = 20;////## Set here a value different than 0 to start the device in asleep mode. 
   g_sequence = 0;
+  uint8_t proxPacketRecvd = 0;
 
   while (1)
     {
       /* transmit every 50-150ms when moving
          or 1550-1650 ms while still */
-      pmu_sleep_ms ((moving ? 50 : 1550) + rnd (100));
+      pmu_sleep_ms ((moving ? 28 : 1550) + rnd (100));
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
@@ -573,13 +578,16 @@ main (void)
 	  /* only blink while moving */
 	  if (moving || !firstrun_done)
 	    {
-	      /* fire up LED */
+	      /* fire up LED 1 & 2 (the latter only if we received a packet recently) */
 	      GPIOSetValue (1, 2, 1);
+              GPIOSetValue (1, 1, proxPacketRecvd);
+              proxPacketRecvd = 0;
 	      /* wait till RX stops */
 	      pmu_sleep_ms (firstrun_done ? 2 : 100);
-	      /* turn LED off */
+	      /* turn LED off & 2*/
 	      GPIOSetValue (1, 2, 0);
-	    }
+              GPIOSetValue (1, 1, 0);
+            }
 	  /* second blink during initialization */
 	  if (!firstrun_done)
 	    {
@@ -617,7 +625,7 @@ main (void)
 		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_TRESHOLD))
 		moving = 20;
 	      else if (moving)
-		moving--;
+		moving = 20;//???????????moving--; DISABLE THE ACCELEROMETER CHECK
 	    }
 	  else
 	    /* make sure to initialize FIFO buffer first */
@@ -626,6 +634,7 @@ main (void)
 
 	  if (moving && nRFCMD_IRQ ())
 	    {
+              uint8_t doWhileLooped = 0;
 	      do
 		{
 		  // read packet from nRF chip
@@ -680,7 +689,8 @@ main (void)
 			  /* store RX'ed packed into log file */
 			  g_Log.time = htonl (LPC_TMR32B0->TC);
 			  g_Log.seq = htonl (seq);
-			  g_Log.oid = oid_last_seen = htons ((uint16_t) oid);
+			  g_Log.oid = htons ((uint16_t) (oid | (doWhileLooped ? (uint16_t)0x8000 : (uint16_t)0)));
+                          oid_last_seen = htons ((uint16_t) oid);
 			  /* calculate CRC over whole logfile entry */
 			  g_Log.crc = crc8 (((uint8_t *) & g_Log),
 			    sizeof (g_Log) - sizeof (g_Log.crc));
@@ -692,16 +702,21 @@ main (void)
 			      g_storage_items ++;
 			    }
 
-			  /* fire up LED to indicate rx */
-			  GPIOSetValue (1, 1, 1);
+                          proxPacketRecvd = 1;
+                          /* fire up LED to indicate rx */
+			  //GPIOSetValue (1, 1, 1);
 			  /* light LED for 2ms */
-			  pmu_sleep_ms (2);
+			  //pmu_sleep_ms (2);
 			  /* turn LED off */
-			  GPIOSetValue (1, 1, 0);
+			  //GPIOSetValue (1, 1, 0);
 			}
 		    }
 		  /* get status */
 		  status = nRFAPI_GetFifoStatus ();
+                  
+                  // The next loop inside this do...while statement the OID higher bit is set by one: this
+                  // is useful to identify if this loop is looped and how many times.
+                  doWhileLooped++;
 		}
 	      while ((status & FIFO_RX_EMPTY) == 0);
 	    }
@@ -709,6 +724,9 @@ main (void)
 	}
       else
 	{
+          // If we havent received anything, just sleep the same amount of time the rx code would have slept.
+          pmu_sleep_ms(22);
+
 	  /* powering up nRF24L01 */
 	  nRFAPI_SetRxMode (0);
 
@@ -716,13 +734,15 @@ main (void)
 	  bzero (&g_Beacon, sizeof (g_Beacon));
 	  g_Beacon.pkt.proto = RFBPROTO_BEACONTRACKER_EXT;
 	  g_Beacon.pkt.flags = moving ? RFBFLAGS_MOVING : 0;
-	  g_Beacon.pkt.oid = htons (tag_id);
+          g_Beacon.pkt.oid = htons (tag_id);
 	  g_Beacon.pkt.p.tracker.strength = (i & 1) + TX_STRENGTH_OFFSET;
 	  g_Beacon.pkt.p.tracker.seq = htonl (LPC_TMR32B0->TC);
 	  g_Beacon.pkt.p.tracker.oid_last_seen = oid_last_seen;
 	  g_Beacon.pkt.p.tracker.time = htons ((uint16_t)g_sequence++);
 	  g_Beacon.pkt.p.tracker.battery = 0;
-	  g_Beacon.pkt.crc = htons (
+          if (((i & 0xf) == 0xf) || ((i & 0xf) == 1) )//Mark the just after and just before rx routing sent packets.
+            g_Beacon.pkt.flags |= 0x20;
+       	  g_Beacon.pkt.crc = htons (
 	    crc16(g_Beacon.byte, sizeof (g_Beacon) - sizeof (g_Beacon.pkt.crc))
 	  );
 
