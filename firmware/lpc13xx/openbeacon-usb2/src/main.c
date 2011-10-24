@@ -725,7 +725,7 @@ main (void)
       else
 	{
           // If we havent received anything, just sleep the same amount of time the rx code would have slept.
-          pmu_sleep_ms(22);
+          pmu_sleep_ms(20);
 
 	  /* powering up nRF24L01 */
 	  nRFAPI_SetRxMode (0);
