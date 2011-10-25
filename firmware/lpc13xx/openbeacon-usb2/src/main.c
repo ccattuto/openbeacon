@@ -492,7 +492,7 @@ main (void)
   /* get current FLASH storage write postition */
   g_storage_items = storage_items ();
 
-  //@@ Erase the flash memory
+  //## Erase the flash memory
   storage_erase();
   g_storage_items = 0;
   
@@ -550,7 +550,7 @@ main (void)
     {
       /* transmit every 50-150ms when moving
          or 1550-1650 ms while still */
-      pmu_sleep_ms ((moving ? 28 : 1550) + rnd (100));
+      pmu_sleep_ms ((moving ? 5 : 1550) + rnd (100));
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
@@ -625,7 +625,7 @@ main (void)
 		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_TRESHOLD))
 		moving = 20;
 	      else if (moving)
-		moving = 20;//???????????moving--; DISABLE THE ACCELEROMETER CHECK
+		moving = 20;//##moving--; DISABLE THE ACCELEROMETER CHECK
 	    }
 	  else
 	    /* make sure to initialize FIFO buffer first */
@@ -636,7 +636,7 @@ main (void)
 	    {
               uint8_t doWhileLooped = 0;
 	      do
-		{
+		{      
 		  // read packet from nRF chip
 		  nRFCMD_RegReadBuf (RD_RX_PLOAD, g_Beacon.byte,
 				     sizeof (g_Beacon));
@@ -686,10 +686,12 @@ main (void)
 			  /* store status info in upper nibble */
 			  if(flags | RFBFLAGS_SENSOR)
 			    g_Log.strength |= LOGFLAG_BUTTON;
-			  /* store RX'ed packed into log file */
+                          if (doWhileLooped)
+                            g_Log.strength |= (uint8_t)0x4;//##
+                          /* store RX'ed packed into log file */
 			  g_Log.time = htonl (LPC_TMR32B0->TC);
 			  g_Log.seq = htonl (seq);
-			  g_Log.oid = htons ((uint16_t) (oid | (doWhileLooped ? (uint16_t)0x8000 : (uint16_t)0)));
+			  g_Log.oid = htons ((uint16_t) (oid));
                           oid_last_seen = htons ((uint16_t) oid);
 			  /* calculate CRC over whole logfile entry */
 			  g_Log.crc = crc8 (((uint8_t *) & g_Log),
@@ -702,7 +704,8 @@ main (void)
 			      g_storage_items ++;
 			    }
 
-                          proxPacketRecvd = 1;
+                          doWhileLooped = 1;// Flag teh reading of the second block of 16byte fromt he nrf pipe0
+                          proxPacketRecvd = 1;// Indicate to led the next outer iteration.
                           /* fire up LED to indicate rx */
 			  //GPIOSetValue (1, 1, 1);
 			  /* light LED for 2ms */
@@ -747,10 +750,10 @@ main (void)
 	  );
 
 	  /* set tx power to low */
-	  nRFCMD_Power (0);
+	  //###nRFCMD_Power (0);
 	  /* transmit packet */
 	  nRF_tx (g_Beacon.pkt.p.tracker.strength);
-	  nRFCMD_Power (1);
+	  //###nRFCMD_Power (1);
 	}
 
       /* powering down */
