@@ -59,7 +59,7 @@ static uint32_t random_seed;
 static uint32_t g_storage_items;
 static uint32_t g_sequence;
 
-#define TX_STRENGTH_OFFSET 2
+#define TX_STRENGTH_OFFSET 0
 
 #define MAINCLKSEL_IRC 0
 #define MAINCLKSEL_SYSPLL_IN 1
@@ -738,7 +738,7 @@ main (void)
 	  g_Beacon.pkt.proto = RFBPROTO_BEACONTRACKER_EXT;
 	  g_Beacon.pkt.flags = moving ? RFBFLAGS_MOVING : 0;
           g_Beacon.pkt.oid = htons (tag_id);
-	  g_Beacon.pkt.p.tracker.strength = (i & 1) + TX_STRENGTH_OFFSET;
+	  g_Beacon.pkt.p.tracker.strength = /*(i & 1) +*/ TX_STRENGTH_OFFSET;
 	  g_Beacon.pkt.p.tracker.seq = htonl (LPC_TMR32B0->TC);
 	  g_Beacon.pkt.p.tracker.oid_last_seen = oid_last_seen;
 	  g_Beacon.pkt.p.tracker.time = htons ((uint16_t)g_sequence++);
@@ -750,10 +750,10 @@ main (void)
 	  );
 
 	  /* set tx power to low */
-	  //###nRFCMD_Power (0);
+	  //nRFCMD_Power (0);
 	  /* transmit packet */
 	  nRF_tx (g_Beacon.pkt.p.tracker.strength);
-	  //###nRFCMD_Power (1);
+          //nRFCMD_Power (1);
 	}
 
       /* powering down */
