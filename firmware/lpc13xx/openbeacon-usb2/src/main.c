@@ -590,6 +590,7 @@ main (void)
               g_storage_items = 0;
               blinkLed1And2 (10);//Blink to signal erasure end.
               pressedCounter = 0;
+              NVIC_SystemReset();
           }
       }
       else
