@@ -493,8 +493,8 @@ main (void)
   g_storage_items = storage_items ();
 
   //## Erase the flash memory
-  storage_erase();
-  g_storage_items = 0;
+  //##storage_erase();
+  //##g_storage_items = 0;
   
   /* initialize power management */
   pmu_init ();
