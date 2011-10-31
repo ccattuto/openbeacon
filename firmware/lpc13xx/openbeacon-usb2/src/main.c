@@ -563,7 +563,8 @@ main (void)
   moving = 0;////## Set here a value different than 0 to start the device in asleep mode. 
   g_sequence = 0;
   uint8_t proxPacketRecvd = 0;
-
+  uint8_t pressedCounter = 0;
+  
   while (1)
     {
       /* transmit every 50-150ms when moving
@@ -572,6 +573,27 @@ main (void)
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
+
+      // If both buttons are pressed for 3 seconds...
+      if (!GPIOGetValue (1, 4) && !GPIOGetValue(0, 1)) 
+      {
+          while ((!GPIOGetValue (1, 4) && !GPIOGetValue(0, 1)) && pressedCounter < 30)
+          {
+              pmu_sleep_ms (100);
+              pressedCounter++;
+          }
+          if (pressedCounter == 30)
+          {
+              GPIOSetValue (1, 1, 1);//Light both leds.
+              GPIOSetValue (1, 2, 1);
+              storage_erase ();//erase the flash
+              g_storage_items = 0;
+              blinkLed1And2 (10);//Blink to signal erasure end.
+              pressedCounter = 0;
+          }
+      }
+      else
+          pressedCounter = 0;
 
       /* blink every 16th packet transmitted */
       if (!moving || ((i & 0xF) == 0))
