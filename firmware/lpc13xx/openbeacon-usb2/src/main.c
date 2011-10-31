@@ -726,8 +726,8 @@ main (void)
 			  /* store status info in upper nibble */
 			  if(flags | RFBFLAGS_SENSOR)
 			    g_Log.strength |= LOGFLAG_BUTTON;
-                          if (doWhileLooped)
-                            g_Log.strength |= (uint8_t)0x4;//##
+                          //##if (doWhileLooped)
+                            //##g_Log.strength |= (uint8_t)0x4;//##
                           /* store RX'ed packed into log file */
 			  g_Log.time = htonl (LPC_TMR32B0->TC);
 			  g_Log.seq = htonl (seq);
