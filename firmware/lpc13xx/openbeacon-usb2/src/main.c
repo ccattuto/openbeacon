@@ -665,7 +665,7 @@ main (void)
 		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_TRESHOLD))
 		moving = 20;
 	      else if (moving)
-		moving = 20;//##moving--; DISABLE THE ACCELEROMETER CHECK
+		moving--;
 	    }
 	  else
 	    /* make sure to initialize FIFO buffer first */
