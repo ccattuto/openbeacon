@@ -353,15 +353,33 @@ main_menue (uint8_t cmd)
   debug_printf ("\n# ");
 }
 
-void
-blink (uint8_t times)
+// @param led 1 of led 1, and 2 for led 2.
+void 
+blink (uint8_t times, int led)
 {
   while (times)
     {
       times--;
 
+      GPIOSetValue (1, led, 1);
+      pmu_sleep_ms (100);
+      GPIOSetValue (1, led, 0);
+      pmu_sleep_ms (200);
+    }
+  pmu_sleep_ms (500);
+}
+
+void 
+blinkLed1And2 (uint8_t times)
+{
+  while (times)
+    {
+      times--;
+
+      GPIOSetValue (1, 2, 1);
       GPIOSetValue (1, 1, 1);
       pmu_sleep_ms (100);
+      GPIOSetValue (1, 2, 0);
       GPIOSetValue (1, 1, 0);
       pmu_sleep_ms (200);
     }
@@ -500,11 +518,11 @@ main (void)
   pmu_init ();
 
   /* blink once to show initialized flash */
-  blink (1);
+  blink (1, 1);
 
   /* Init 3D acceleration sensor */
   acc_init (0);
-  blink (2);
+  blink (2, 1);
 
   /* Initialize OpenBeacon nRF24L01 interface */
   if (!nRFAPI_Init
@@ -520,7 +538,7 @@ main (void)
   nRFCMD_Power (1);
 
   /* blink three times to show flash initialized RF interface */
-  blink (3);
+  blink (3, 1);
 
   /* blink LED for 1s to show readyness */
   GPIOSetValue (1, 1, 0);
