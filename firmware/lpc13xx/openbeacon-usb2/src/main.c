@@ -59,7 +59,9 @@ static uint32_t random_seed;
 static uint32_t g_storage_items;
 static uint32_t g_sequence;
 
-#define TX_STRENGTH_OFFSET 3
+#define TX_STRENGTH_OFFSET 1
+static const int ACCCOUNTER_INITIAL_VALUE = 50;
+
 
 #define MAINCLKSEL_IRC 0
 #define MAINCLKSEL_SYSPLL_IN 1
@@ -564,12 +566,13 @@ main (void)
   g_sequence = 0;
   uint8_t proxPacketRecvd = 0;
   uint8_t pressedCounter = 0;
-  
+  int old_moving = moving;
+
   while (1)
     {
       /* transmit every 50-150ms when moving
          or 1550-1650 ms while still */
-      pmu_sleep_ms ((moving ? 28 : 1550) + rnd (100));
+      pmu_sleep_ms ((moving ? 5 : 1550) + rnd (100));
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
@@ -577,6 +580,8 @@ main (void)
       // If both buttons are pressed for 3 seconds...
       if (!GPIOGetValue (1, 4) && !GPIOGetValue(0, 1)) 
       {
+          GPIOSetValue (1, 1, 1);//Light both leds.
+          GPIOSetValue (1, 2, 1);
           while ((!GPIOGetValue (1, 4) && !GPIOGetValue(0, 1)) && pressedCounter < 30)
           {
               pmu_sleep_ms (100);
@@ -584,14 +589,14 @@ main (void)
           }
           if (pressedCounter == 30)
           {
-              GPIOSetValue (1, 1, 1);//Light both leds.
-              GPIOSetValue (1, 2, 1);
               storage_erase ();//erase the flash
               g_storage_items = 0;
               blinkLed1And2 (10);//Blink to signal erasure end.
               pressedCounter = 0;
               NVIC_SystemReset();
           }
+          GPIOSetValue (1, 1, 0);//Unlight both leds.
+          GPIOSetValue (1, 2, 0);
       }
       else
           pressedCounter = 0;
@@ -664,7 +669,7 @@ main (void)
 	      if ((abs (acc_lowpass.x / FIFO_DEPTH - x) >= ACC_TRESHOLD) ||
 		  (abs (acc_lowpass.y / FIFO_DEPTH - y) >= ACC_TRESHOLD) ||
 		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_TRESHOLD))
-		moving = 20;
+		moving = ACCCOUNTER_INITIAL_VALUE;
 	      else if (moving)
 		moving--;
 	    }
@@ -672,6 +677,23 @@ main (void)
 	    /* make sure to initialize FIFO buffer first */
 	  if (!fifo_pos)
 	    firstrun_done = TRUE;
+
+          if (((moving == 0) || (moving == ACCCOUNTER_INITIAL_VALUE)) && (old_moving != moving))//Log when the device is sleeping
+          {
+              g_Log.time = htonl (LPC_TMR32B0->TC);
+              g_Log.seq = htonl (moving);
+              g_Log.oid = htons ((uint16_t) (0xffff));
+              /* calculate CRC over whole logfile entry */
+              g_Log.crc = crc8 (((uint8_t *) & g_Log), sizeof (g_Log) - sizeof (g_Log.crc));
+              /* store data if space left on FLASH */
+              if (g_storage_items < (LOGFILE_STORAGE_SIZE/sizeof (g_Log)))
+              {
+                  storage_write (g_storage_items * sizeof (g_Log), sizeof (g_Log), &g_Log);
+                  /* increment and store RAM persistent storage position */
+                  g_storage_items ++;
+              }
+              old_moving = moving;
+          }
 
 	  if (moving && nRFCMD_IRQ ())
 	    {
@@ -779,7 +801,7 @@ main (void)
 	  g_Beacon.pkt.proto = RFBPROTO_BEACONTRACKER_EXT;
 	  g_Beacon.pkt.flags = moving ? RFBFLAGS_MOVING : 0;
           g_Beacon.pkt.oid = htons (tag_id);
-	  g_Beacon.pkt.p.tracker.strength = /*(i & 1) +*/ TX_STRENGTH_OFFSET;
+	  g_Beacon.pkt.p.tracker.strength = (i & 1) + TX_STRENGTH_OFFSET;
 	  g_Beacon.pkt.p.tracker.seq = htonl (LPC_TMR32B0->TC);
 	  g_Beacon.pkt.p.tracker.oid_last_seen = oid_last_seen;
 	  g_Beacon.pkt.p.tracker.time = htons ((uint16_t)g_sequence++);
@@ -791,10 +813,10 @@ main (void)
 	  );
 
 	  /* set tx power to low */
-	  nRFCMD_Power (0);
+	  //##nRFCMD_Power (0);
 	  /* transmit packet */
 	  nRF_tx (g_Beacon.pkt.p.tracker.strength);
-          nRFCMD_Power (1);
+          //##nRFCMD_Power (1);
 	}
 
       /* powering down */
