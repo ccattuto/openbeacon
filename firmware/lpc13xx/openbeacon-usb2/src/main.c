@@ -59,7 +59,7 @@ static uint32_t random_seed;
 static uint32_t g_storage_items;
 static uint32_t g_sequence;
 
-#define TX_STRENGTH_OFFSET 0
+#define TX_STRENGTH_OFFSET 3
 
 #define MAINCLKSEL_IRC 0
 #define MAINCLKSEL_SYSPLL_IN 1
@@ -542,7 +542,7 @@ main (void)
   bzero (&acc_lowpass, sizeof (acc_lowpass));
   bzero (&fifo_buf, sizeof (fifo_buf));
   firstrun_done = 0;
-  moving = 20;////## Set here a value different than 0 to start the device in asleep mode. 
+  moving = 0;////## Set here a value different than 0 to start the device in asleep mode. 
   g_sequence = 0;
   uint8_t proxPacketRecvd = 0;
 
@@ -550,7 +550,7 @@ main (void)
     {
       /* transmit every 50-150ms when moving
          or 1550-1650 ms while still */
-      pmu_sleep_ms ((moving ? 5 : 1550) + rnd (100));
+      pmu_sleep_ms ((moving ? 28 : 1550) + rnd (100));
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
@@ -750,10 +750,10 @@ main (void)
 	  );
 
 	  /* set tx power to low */
-	  //nRFCMD_Power (0);
+	  nRFCMD_Power (0);
 	  /* transmit packet */
 	  nRF_tx (g_Beacon.pkt.p.tracker.strength);
-          //nRFCMD_Power (1);
+          nRFCMD_Power (1);
 	}
 
       /* powering down */
