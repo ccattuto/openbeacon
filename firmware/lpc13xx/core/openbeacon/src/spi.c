@@ -40,7 +40,7 @@ void spi_txrx_done(spi_cs chipselect)
 int spi_txrx(spi_cs chipselect, const void *tx, uint16_t txlen, void *rx,
 		uint16_t rxlen)
 {
-	uint8_t data, status;
+	uint8_t data;
 	uint16_t total, xfered;
 
 	/* SSP0 Clock Prescale Register to SYSCLK/CPSDVSR */
@@ -58,9 +58,8 @@ int spi_txrx(spi_cs chipselect, const void *tx, uint16_t txlen, void *rx,
 
 	while (xfered)
 	{
-		status = (uint8_t) LPC_SSP->SR;
 
-		if (total && (status & 0x02))
+		if (total)
 		{
 			total--;
 
@@ -75,10 +74,13 @@ int spi_txrx(spi_cs chipselect, const void *tx, uint16_t txlen, void *rx,
 			else
 				data = 0;
 
+            /* Wait if TX fifo is full */
+            while((LPC_SSP->SR & 2)==0);
+
 			LPC_SSP->DR = data;
 		}
 
-		if (status & 0x04)
+		while (LPC_SSP->SR & 0x04)
 		{
 			data = LPC_SSP->DR;
 			xfered--;
@@ -94,6 +96,9 @@ int spi_txrx(spi_cs chipselect, const void *tx, uint16_t txlen, void *rx,
 			}
 		}
 	}
+
+    /* Wait for TX transaction to finish */
+    while ((LPC_SSP->SR & 1)==0);
 
 	/* de-activate chip select */
 	if ((chipselect & SPI_CS_MODE_SKIP_CS_DEASSERT) == 0)
