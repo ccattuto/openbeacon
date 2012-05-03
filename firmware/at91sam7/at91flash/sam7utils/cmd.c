@@ -216,7 +216,7 @@ static int cmd_send_file( int argc, char *argv[] )
     return CMD_E_WRONG_NUM_ARGS;
   }
 
-  strtoul( argv[1], &endp, 0 );
+  offset = strtoul( argv[1], &endp, 0 );
   if( endp == argv[1] ||
       *endp != '\0' ) {
     return CMD_E_INVAL_ARG;
