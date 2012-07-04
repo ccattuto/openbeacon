@@ -41,7 +41,7 @@
 
 typedef struct
 {
-  int x, y, z;
+  int8_t x, y, z;
 } TFifoEntry;
 
 /* device UUID */
@@ -54,8 +54,6 @@ static uint32_t g_storage_items;
 static uint32_t g_sequence;
 
 uint8_t pressedCounter = 0;
-
-#define TX_STRENGTH_OFFSET 2
 
 #define MAINCLKSEL_IRC 0
 #define MAINCLKSEL_SYSPLL_IN 1
@@ -74,7 +72,7 @@ static const unsigned char broadcast_mac[NRF_MAX_MAC_SIZE] = { 1, 2, 3, 2, 1 };
 
 /* OpenBeacon packet */
 static TBeaconEnvelope g_Beacon;
-static TLogfileBeaconPacket g_Log;
+static TLogfileAccPacket g_Log;
 
 static void
 nRF_tx (uint8_t power)
@@ -375,7 +373,8 @@ main (void)
   uint32_t SSPdiv;
   uint8_t cmd_buffer[64], cmd_pos, *cmd, c;
   uint8_t volatile *uart;
-  int x, y, z, firstrun_done, moving;
+  int8_t x, y, z;
+  int firstrun_done, moving;
   volatile int t;
   int i;
 
@@ -532,9 +531,8 @@ main (void)
 
   while (1)
     {
-      /* transmit every 50-150ms when moving
-         or 1550-1650 ms while still */
-      pmu_sleep_ms ((moving ? 50 : 1550) + rnd (100));
+      /* transmit every 100-200ms when moving or 1450-1550 ms while still */
+      pmu_sleep_ms ((moving ? 100 : 1450) + rnd (100));
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
@@ -564,7 +562,7 @@ main (void)
           pressedCounter = 0;
 
       /* blink every 16th packet transmitted */
-      if (!moving || ((i & 0xF) == 0))
+      if (!moving || ((i & 0xf) == 0))
 	{
 	  /* turn on 3D acceleration sensor */
 	  acc_power (1);
@@ -598,10 +596,7 @@ main (void)
 
 	  /* add new accelerometer values to lowpass */
 	  fifo = &fifo_buf[fifo_pos];
-	  if (fifo_pos >= (FIFO_DEPTH - 1))
-	    fifo_pos = 0;
-	  else
-	    fifo_pos++;
+	  fifo_pos = (fifo_pos+1) % FIFO_DEPTH;
 
 	  acc_lowpass.x += x - fifo->x;
 	  fifo->x = x;
@@ -612,9 +607,9 @@ main (void)
 
 	  if (firstrun_done)
 	    {
-	      if ((abs (acc_lowpass.x / FIFO_DEPTH - x) >= ACC_TRESHOLD) ||
-		  (abs (acc_lowpass.y / FIFO_DEPTH - y) >= ACC_TRESHOLD) ||
-		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_TRESHOLD))
+	      if ((abs (acc_lowpass.x / FIFO_DEPTH - x) >= ACC_THRESHOLD) ||
+		  (abs (acc_lowpass.y / FIFO_DEPTH - y) >= ACC_THRESHOLD) ||
+		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_THRESHOLD))
 		moving = 20;
 	      else if (moving)
 		moving--;
@@ -629,8 +624,9 @@ main (void)
 
       /* log acceleration record */
       g_Log.time = htonl (LPC_TMR32B0->TC);
-      g_Log.seq = htonl (moving);
-      g_Log.oid = htons ((uint16_t) (0xffff));
+      g_Log.acc_x = x;
+      g_Log.acc_y = y;
+      g_Log.acc_z = z;
       g_Log.crc = crc8 (((uint8_t *) & g_Log), sizeof (g_Log) - sizeof (g_Log.crc));
       /* store data if space left on FLASH */
       if (g_storage_items < (LOGFILE_STORAGE_SIZE/sizeof (g_Log))) {
@@ -644,7 +640,7 @@ main (void)
 	  g_Beacon.pkt.proto = RFBPROTO_BEACONTRACKER_EXT;
 	  g_Beacon.pkt.flags = moving ? RFBFLAGS_MOVING : 0;
 	  g_Beacon.pkt.oid = htons (tag_id);
-	  g_Beacon.pkt.p.tracker.strength = (i & 1) + TX_STRENGTH_OFFSET;
+	  g_Beacon.pkt.p.tracker.strength = 3;
 	  g_Beacon.pkt.p.tracker.seq = htonl (LPC_TMR32B0->TC);
 	  g_Beacon.pkt.p.tracker.time = htons ((uint16_t)g_sequence++);
 	  g_Beacon.pkt.p.tracker.battery = 0;

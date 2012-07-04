@@ -39,6 +39,7 @@
 #define RFBPROTO_PROXTRACKER            42
 #define RFBPROTO_PROXREPORT             69
 #define RFBPROTO_PROXREPORT_EXT         70
+#define RFBPROTO_ACCREPORT              71
 
 #define PROX_MAX 4
 #define PROX_TAG_ID_BITS 12
@@ -143,5 +144,12 @@ typedef struct
   uint16_t oid;
   uint8_t strength, crc;
 } PACKED TLogfileBeaconPacket;
+
+typedef struct
+{
+  uint32_t time;
+  int8_t acc_x, acc_y, acc_z;
+  uint8_t crc;
+} PACKED TLogfileAccPacket;
 
 #endif/*__OPENBEACON_PROTO_H__*/

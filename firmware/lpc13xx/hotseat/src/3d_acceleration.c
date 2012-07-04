@@ -52,7 +52,7 @@ acc_reg_read (uint8_t addr)
 }
 
 void
-acc_xyz_read (int *x, int *y, int *z)
+acc_xyz_read (int8_t *x, int8_t *y, int8_t *z)
 {
   /* dummy read - FIXME */
   acc_reg_read (0);
@@ -66,7 +66,7 @@ acc_xyz_read (int *x, int *y, int *z)
 void
 acc_status (void)
 {
-  int x, y, z;
+  int8_t x, y, z;
 
   acc_xyz_read (&x, &y, &z);
 

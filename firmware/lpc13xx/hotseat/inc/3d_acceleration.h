@@ -27,6 +27,6 @@
 extern void acc_init (uint8_t enabled);
 extern void acc_power (uint8_t enabled);
 extern void acc_status (void);
-extern void acc_xyz_read (int *x, int *y, int *z);
+extern void acc_xyz_read (int8_t *x, int8_t *y, int8_t *z);
 
 #endif/*__3D_ACCELERATION_H__*/

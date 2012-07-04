@@ -31,7 +31,7 @@
 
 #ifdef  ENABLE_FLASH
 
-#define LOGTXT_ENTRY_SIZE 34
+#define LOGTXT_ENTRY_SIZE 29
 
 static uint16_t g_device_id;
 static uint32_t g_log_items;
@@ -142,7 +142,7 @@ storage_scan_items (void)
 {
   uint32_t t, pos;
   uint8_t *p;
-  TLogfileBeaconPacket pkt;
+  TLogfileAccPacket pkt;
 
   pos = 0;
   while (pos <= (LOGFILE_STORAGE_SIZE - sizeof (pkt)))
@@ -169,8 +169,7 @@ storage_scan_items (void)
 static void
 storage_logtxt_fmt (char* buffer, uint32_t index)
 {
-  uint32_t oid;
-  TLogfileBeaconPacket pkt;
+  TLogfileAccPacket pkt;
 
   if( index < g_log_items )
   {
@@ -178,17 +177,11 @@ storage_logtxt_fmt (char* buffer, uint32_t index)
 
     if(crc8((uint8_t*)&pkt, sizeof(pkt)-sizeof(pkt.crc)) == pkt.crc)
     {
-      oid = ntohs(pkt.oid);
-
-      if((pkt.strength & LOGFLAG_PROXIMITY) || (oid>9999))
-	cIO_snprintf(buffer, LOGTXT_ENTRY_SIZE, "P%04X,%07u,P%04X,%u,%010u\n", g_device_id, ntohl(pkt.time), oid, pkt.strength & 0xF, ntohl(pkt.seq));
-      else
-	cIO_snprintf(buffer, LOGTXT_ENTRY_SIZE, "P%04X,%07u,T%04u,%u,%010u\n", g_device_id, ntohl(pkt.time), oid, pkt.strength & 0xF, ntohl(pkt.seq));
+	  cIO_snprintf(buffer, LOGTXT_ENTRY_SIZE, "%04X,%07u,%+04d,%+04d,%+04d\n", g_device_id, ntohl(pkt.time), pkt.acc_x, pkt.acc_y, pkt.acc_z);
     }
     else
     {
-      memset(buffer, ' ', LOGTXT_ENTRY_SIZE-2);
-      buffer[LOGTXT_ENTRY_SIZE-2]='\r';
+      memset(buffer, ' ', LOGTXT_ENTRY_SIZE-1);
       buffer[LOGTXT_ENTRY_SIZE-1]='\n';
     }
   }
@@ -341,7 +334,7 @@ static const TDiskFile f_volume_label = {
   /* determine stored item count */
   storage_scan_items ();
   /* update file sizes */
-  f_logfile.length = g_log_items * sizeof(TLogfileBeaconPacket);
+  f_logfile.length = g_log_items * sizeof(TLogfileAccPacket);
   f_logtxt.length = g_log_items * LOGTXT_ENTRY_SIZE;
 #endif/*ENABLE_FLASH*/
 
