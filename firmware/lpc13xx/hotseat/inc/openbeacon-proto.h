@@ -148,6 +148,8 @@ typedef struct
 typedef struct
 {
   uint32_t time;
+  uint8_t status;
+  uint8_t reserved;
   int8_t acc_x, acc_y, acc_z;
   uint8_t crc;
 } PACKED TLogfileAccPacket;

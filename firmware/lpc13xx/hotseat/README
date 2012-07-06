@@ -8,9 +8,9 @@ con  packets.  Such  packets  can  then be received by OpenBeacon
 EasyReader PoE II base stations in the vicinity. Signals received
 by one or more base stations can then be used to estimate the po-
 sition of the tag. Optional encryption can make sure,  that  only
-base stations inside the system can read the packet information.
+base  stations inside the system can read the packet information.
 
-In  this directory you can find the OpenBeacon USB 2 tag firmware
+In this directory you can find the OpenBeacon USB 2 tag  firmware
 source code. You can find more information here:
 
 - http://openbeacon.org/OpenBeacon_USB_2
@@ -25,16 +25,16 @@ source code. You can find more information here:
 
 2.  ACKNOWLEDGEMENTS
 
-Although the code contributions are acknowledged  in  the  source
+Although  the  code  contributions are acknowledged in the source
 code  headers  and  history  log  files  of  the  GIT  repository
-(http://goo.gl/bE8Ig), this project lives  from  invaluable  user
-contributions  like  rigorous testing, constant suggestion of new
+(http://goo.gl/bE8Ig),  this  project  lives from invaluable user
+contributions like rigorous testing, constant suggestion  of  new
 features and regular real-life deployments in the field.
 
-The OpenBeacon Team especially wants to thank  Ciro  Cattuto  and
-Luca  Cappa  from ISI Foundation for the enriching collaboration,
-the ongoing moral support, helpful  and  innovative  suggestions,
-tireless testing and innovative deployments of our RFID readers.
+The  OpenBeacon  Team  especially wants to thank Ciro Cattuto and
+Luca Cappa from ISI Foundation for the  enriching  collaboration,
+the  ongoing  moral  support, helpful and innovative suggestions,
+tireless testing and innovative deployments of our RFID  readers.
 
 We also want to thank the SocioPatterns project for providing the
 scientific background for our platform, the  media  exposure  and

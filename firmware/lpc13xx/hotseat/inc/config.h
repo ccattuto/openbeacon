@@ -36,7 +36,7 @@
 #endif/*USB_DISK_SUPPORT*/
 
 /* Treshold for detecting 3D accelerometer movement */
-#define ACC_THRESHOLD 2
+#define ACC_THRESHOLD 5
 
 /* Clock Definition */
 #define SYSTEM_CRYSTAL_CLOCK 12000000

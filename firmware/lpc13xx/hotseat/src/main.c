@@ -37,7 +37,7 @@
 #include "xxtea.h"
 #endif /* ENCRYPT */
 
-#define FIFO_DEPTH 10
+#define FIFO_DEPTH 16
 
 typedef struct
 {
@@ -99,19 +99,19 @@ nRF_tx (uint8_t power)
   nRFCMD_CE (0);
 }
 
-static uint32_t
-rnd (uint32_t range)
-{
-  static uint32_t v1 = 0x52f7d319;
-  static uint32_t v2 = 0x6e28014a;
-
-  /* reseed random with timer */
-  random_seed += LPC_TMR32B0->TC ^ g_sequence;
-
-  /* MWC generator, period length 1014595583 */
-  return ((((v1 = 36969 * (v1 & 0xffff) + (v1 >> 16)) << 16) ^
-	   (v2 = 30963 * (v2 & 0xffff) + (v2 >> 16))) ^ random_seed) % range;
-}
+//static uint32_t
+//rnd (uint32_t range)
+//{
+//  static uint32_t v1 = 0x52f7d319;
+//  static uint32_t v2 = 0x6e28014a;
+//
+//  /* reseed random with timer */
+//  random_seed += LPC_TMR32B0->TC ^ g_sequence;
+//
+//  /* MWC generator, period length 1014595583 */
+//  return ((((v1 = 36969 * (v1 & 0xffff) + (v1 >> 16)) << 16) ^
+//	   (v2 = 30963 * (v2 & 0xffff) + (v2 >> 16))) ^ random_seed) % range;
+//}
 
 static inline void
 pin_init (void)
@@ -365,8 +365,8 @@ int
 main (void)
 {
   /* accelerometer readings fifo */
-  TFifoEntry acc_lowpass;
   TFifoEntry fifo_buf[FIFO_DEPTH];
+  int32_t acc_lowpass_x, acc_lowpass_y, acc_lowpass_z;
   int fifo_pos;
   TFifoEntry *fifo;
 
@@ -522,7 +522,7 @@ main (void)
 
   /*initialize FIFO */
   fifo_pos = 0;
-  bzero (&acc_lowpass, sizeof (acc_lowpass));
+  acc_lowpass_x = acc_lowpass_y = acc_lowpass_z = 0L;
   bzero (&fifo_buf, sizeof (fifo_buf));
   firstrun_done = 0;
   moving = 0;
@@ -532,7 +532,7 @@ main (void)
   while (1)
     {
       /* transmit every 100-200ms when moving or 1450-1550 ms while still */
-      pmu_sleep_ms ((moving ? 100 : 1450) + rnd (100));
+      pmu_sleep_ms (moving ? 50 : 1000);
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
@@ -598,19 +598,19 @@ main (void)
 	  fifo = &fifo_buf[fifo_pos];
 	  fifo_pos = (fifo_pos+1) % FIFO_DEPTH;
 
-	  acc_lowpass.x += x - fifo->x;
+	  acc_lowpass_x += x - fifo->x;
 	  fifo->x = x;
-	  acc_lowpass.y += y - fifo->y;
+	  acc_lowpass_y += y - fifo->y;
 	  fifo->y = y;
-	  acc_lowpass.z += z - fifo->z;
+	  acc_lowpass_z += z - fifo->z;
 	  fifo->z = z;
 
 	  if (firstrun_done)
 	    {
-	      if ((abs (acc_lowpass.x / FIFO_DEPTH - x) >= ACC_THRESHOLD) ||
-		  (abs (acc_lowpass.y / FIFO_DEPTH - y) >= ACC_THRESHOLD) ||
-		  (abs (acc_lowpass.z / FIFO_DEPTH - z) >= ACC_THRESHOLD))
-		moving = 20;
+	      if ((abs (acc_lowpass_x / FIFO_DEPTH - x) >= ACC_THRESHOLD) ||
+		  (abs (acc_lowpass_y / FIFO_DEPTH - y) >= ACC_THRESHOLD) ||
+		  (abs (acc_lowpass_z / FIFO_DEPTH - z) >= ACC_THRESHOLD))
+		moving = 50;
 	      else if (moving)
 		moving--;
 	    }
@@ -622,17 +622,21 @@ main (void)
 	  /* powering up nRF24L01 */
 	  nRFAPI_SetRxMode (0);
 
-      /* log acceleration record */
-      g_Log.time = htonl (LPC_TMR32B0->TC);
-      g_Log.acc_x = x;
-      g_Log.acc_y = y;
-      g_Log.acc_z = z;
-      g_Log.crc = crc8 (((uint8_t *) & g_Log), sizeof (g_Log) - sizeof (g_Log.crc));
-      /* store data if space left on FLASH */
-      if (g_storage_items < (LOGFILE_STORAGE_SIZE/sizeof (g_Log))) {
-        storage_write (g_storage_items * sizeof (g_Log), sizeof (g_Log), &g_Log);
-        /* increment and store RAM persistent storage position */
-        g_storage_items ++;
+      if (firstrun_done && moving) {
+        /* log acceleration record */
+	bzero (&g_Log, sizeof (g_Log));
+        g_Log.time = htonl (LPC_TMR32B0->TC);
+        g_Log.acc_x = x - acc_lowpass_x / FIFO_DEPTH;
+        g_Log.acc_y = y - acc_lowpass_y / FIFO_DEPTH;
+        g_Log.acc_z = z - acc_lowpass_z / FIFO_DEPTH;
+        g_Log.status = moving;
+        g_Log.crc = crc8 (((uint8_t *) & g_Log), sizeof (g_Log) - sizeof (g_Log.crc));
+        /* store data if space left on FLASH */
+        if (g_storage_items < (LOGFILE_STORAGE_SIZE/sizeof (g_Log))) {
+          storage_write (g_storage_items * sizeof (g_Log), sizeof (g_Log), &g_Log);
+          /* increment and store RAM persistent storage position */
+          g_storage_items ++;
+        }
       }
 
 	  /* prepare packet */
