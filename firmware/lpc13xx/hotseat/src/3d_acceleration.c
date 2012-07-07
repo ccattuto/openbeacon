@@ -96,6 +96,7 @@ WAKEUP_IRQHandlerPIO1_11 (void)
 {
   /* Clear pending IRQ */
   LPC_SYSCON->STARTRSRP0CLR = STARTxPRP0_PIO1_11;
+  //NVIC_ClearPendingIRQ(WAKEUP_PIO1_11_IRQn);
 
   accel = 1;
 
@@ -106,14 +107,15 @@ void
 acc_power (uint8_t enabled)
 {
   ///* switch to input if enabled */
-  if(enabled)
-    GPIOSetDir (1, 11, 0);
+//  if(enabled)
+//    GPIOSetDir (1, 11, 0);
 
   /* dummy read - maybe fixed ? */
   acc_reg_read (0);
   /* set 3D acceleration sensor active, enable level detection */
 
-  acc_reg_write(0x16, enabled ? 0x02 : 0x00);
+  acc_reg_write(0x16, enabled ? (1 << 6 | 0x02) : 0x00);
+  //acc_reg_write(0x16, enabled ? 0x02 : 0x00);
 
   acc_reg_write(0x18, 0x03 << 3);
   acc_reg_write(0x19, 0x00);
@@ -124,11 +126,11 @@ acc_power (uint8_t enabled)
   acc_clear();
 
   /* switch to output after shutting down */
-  if(!enabled)
-  {
-    GPIOSetDir (1, 11, 1);
-    GPIOSetValue (1, 11, 0);
-  }
+//  if(!enabled)
+//  {
+//    GPIOSetDir (1, 11, 1);
+//    GPIOSetValue (1, 11, 0);
+//  }
 }
 
 void
@@ -137,13 +139,14 @@ acc_init (uint8_t enabled)
   /* PIO, PIO0_4 in standard IO functionality */
   LPC_IOCON->PIO0_4 = 1 << 8;
 
-  LPC_IOCON->PIO1_11 = 0;
+  LPC_IOCON->PIO1_11 = 0x80;
   GPIOSetDir (ACC_IRQ_CPU_PORT, ACC_IRQ_CPU_PIN, 0);
   /* setup IRQ generation */
-  NVIC_EnableIRQ (WAKEUP_PIO1_11_IRQn);
-  LPC_SYSCON->STARTAPRP0 = (LPC_SYSCON->STARTAPRP0 & ~STARTxPRP0_PIO1_11);
+  //LPC_SYSCON->STARTAPRP0 = (LPC_SYSCON->STARTAPRP0 & ~STARTxPRP0_PIO1_11);
+  LPC_SYSCON->STARTAPRP0 = LPC_SYSCON->STARTAPRP0 | STARTxPRP0_PIO1_11;
+  LPC_SYSCON->STARTERP0 = LPC_SYSCON->STARTAPRP0 | STARTxPRP0_PIO1_11;
   LPC_SYSCON->STARTRSRP0CLR = STARTxPRP0_PIO1_11;
-  LPC_SYSCON->STARTERP0 |= STARTxPRP0_PIO1_11;
+  NVIC_EnableIRQ (WAKEUP_PIO1_11_IRQn);
 
   /* setup SPI chipselect pin */
   spi_init_pin (SPI_CS_ACC3D);

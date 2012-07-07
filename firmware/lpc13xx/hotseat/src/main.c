@@ -179,6 +179,7 @@ pin_init (void)
   LPC_IOCON->PIO1_11 = 0x80;	//
   GPIOSetDir (1, 11, 1);	// OUT
   GPIOSetValue (1, 11, 0);
+  GPIOSetDir (1, 11, 0);	// IN
 
   LPC_IOCON->PIO1_4 = 0x80;
   GPIOSetDir (1, 4, 0);		// IN
@@ -492,7 +493,7 @@ main (void)
   blink (1);
 
   /* Init 3D acceleration sensor */
-  acc_init (0);
+  acc_init (1);
   blink (2);
 
   /* Initialize OpenBeacon nRF24L01 interface */
@@ -531,30 +532,24 @@ main (void)
   //g_sequence = 0;
   //pressedCounter = 0;
 
-  acc_power(1);
+  //acc_power(1);
 
   while (1)
     {
       /* transmit every 100-200ms when moving or 1450-1550 ms while still */
-      pmu_sleep_ms (50);
+      pmu_sleep_ms (1000);
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
 
-      if (acc_source() & 0x01) {
-         blink(1);
-         acc_clear();
-      }
+      if (accel) {
+        GPIOSetValue (1, 1, 1);
+        pmu_sleep_ms (100);
+        GPIOSetValue (1, 1, 0);
+        pmu_sleep_ms (200);
 
-      if (accel || moving > 0) {
-        if (accel) {
-//          acc_clear();
-          accel = 0;
-          moving = 10;
-        }
-        if (moving > 0)
-	  moving--; 
-        blink(1);
+        accel = 0;
+        acc_clear();
       }
 
       /* powering down */
