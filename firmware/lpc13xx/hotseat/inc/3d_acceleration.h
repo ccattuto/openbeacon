@@ -24,9 +24,16 @@
 #ifndef __3D_ACCELERATION_H__
 #define __3D_ACCELERATION_H__
 
+#define ACC_IRQ_CPU_PORT	1
+#define ACC_IRQ_CPU_PIN		11
+
 extern void acc_init (uint8_t enabled);
 extern void acc_power (uint8_t enabled);
+extern uint8_t acc_source (void);
+extern void acc_clear(void);
 extern void acc_status (void);
 extern void acc_xyz_read (int8_t *x, int8_t *y, int8_t *z);
+
+extern uint8_t acc_IRQ(void);
 
 #endif/*__3D_ACCELERATION_H__*/
