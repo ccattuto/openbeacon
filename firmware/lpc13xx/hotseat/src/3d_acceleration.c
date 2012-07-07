@@ -23,6 +23,9 @@
 #include <openbeacon.h>
 #include "3d_acceleration.h"
 #include "spi.h"
+#include "pmu.h"
+
+extern uint8_t accel;
 
 static void
 acc_reg_write (uint8_t addr, uint8_t data)
@@ -73,17 +76,52 @@ acc_status (void)
   debug_printf (" * 3D_ACC: X=%04i Y=%04i Z=%04i\n", x, y, z);
 }
 
+uint8_t acc_source(void) {
+  return acc_reg_read(0x0A);
+}
+
+void acc_clear(void) {
+  acc_reg_write(0x17, 0x03);
+  acc_reg_write(0x17, 0x00);
+}
+
+uint8_t
+acc_IRQ (void)
+{
+  return !GPIOGetValue (ACC_IRQ_CPU_PORT, ACC_IRQ_CPU_PIN);
+}
+
+void
+WAKEUP_IRQHandlerPIO1_11 (void)
+{
+  /* Clear pending IRQ */
+  LPC_SYSCON->STARTRSRP0CLR = STARTxPRP0_PIO1_11;
+
+  accel = 1;
+
+  pmu_cancel_timer();
+}
+
 void
 acc_power (uint8_t enabled)
 {
-  /* switch to input if enabled */
+  ///* switch to input if enabled */
   if(enabled)
     GPIOSetDir (1, 11, 0);
 
-  /* dummy read - FIXME */
+  /* dummy read - maybe fixed ? */
   acc_reg_read (0);
-  /* set 3D acceleration sensor active, 2g - FIXME power saving */
-  acc_reg_write (0x16, enabled ? (0x01 | 0x01 << 2) : 0x00);
+  /* set 3D acceleration sensor active, enable level detection */
+
+  acc_reg_write(0x16, enabled ? 0x02 : 0x00);
+
+  acc_reg_write(0x18, 0x03 << 3);
+  acc_reg_write(0x19, 0x00);
+
+  /* set threshold level */
+  acc_reg_write(0x1A, 0x1F);
+
+  acc_clear();
 
   /* switch to output after shutting down */
   if(!enabled)
@@ -99,12 +137,16 @@ acc_init (uint8_t enabled)
   /* PIO, PIO0_4 in standard IO functionality */
   LPC_IOCON->PIO0_4 = 1 << 8;
 
+  LPC_IOCON->PIO1_11 = 0;
+  GPIOSetDir (ACC_IRQ_CPU_PORT, ACC_IRQ_CPU_PIN, 0);
+  /* setup IRQ generation */
+  NVIC_EnableIRQ (WAKEUP_PIO1_11_IRQn);
+  LPC_SYSCON->STARTAPRP0 = (LPC_SYSCON->STARTAPRP0 & ~STARTxPRP0_PIO1_11);
+  LPC_SYSCON->STARTRSRP0CLR = STARTxPRP0_PIO1_11;
+  LPC_SYSCON->STARTERP0 |= STARTxPRP0_PIO1_11;
+
   /* setup SPI chipselect pin */
   spi_init_pin (SPI_CS_ACC3D);
-
-  /* PIO, Inactive Pull, Digital Mode */
-  LPC_IOCON->PIO1_11 = 0x80;
-  GPIOSetDir (1, 11, 0);
 
   /* propagate power settings */
   acc_power (enabled);

@@ -51,9 +51,11 @@ static TDeviceUID device_uuid;
 static uint32_t random_seed;
 /* logfile position */
 static uint32_t g_storage_items;
-static uint32_t g_sequence;
+//static uint32_t g_sequence;
 
-uint8_t pressedCounter = 0;
+//uint8_t pressedCounter = 0;
+
+uint8_t accel = 0;
 
 #define MAINCLKSEL_IRC 0
 #define MAINCLKSEL_SYSPLL_IN 1
@@ -71,33 +73,33 @@ static const uint32_t xxtea_key[XXTEA_BLOCK_COUNT] = { 0x00112233, 0x44556677, 0
 static const unsigned char broadcast_mac[NRF_MAX_MAC_SIZE] = { 1, 2, 3, 2, 1 };
 
 /* OpenBeacon packet */
-static TBeaconEnvelope g_Beacon;
-static TLogfileAccPacket g_Log;
+//static TBeaconEnvelope g_Beacon;
+//static TLogfileAccPacket g_Log;
 
-static void
-nRF_tx (uint8_t power)
-{
-
-  #ifdef ENCRYPT
-  /* encrypt data */
-  xxtea_encode (g_Beacon.block, XXTEA_BLOCK_COUNT, xxtea_key);
-  #endif /* ENCRYPT */
-
-  /* set TX power */
-  nRFAPI_SetTxPower (power & 0x3);
-
-  /* upload data to nRF24L01 */
-  nRFAPI_TX (g_Beacon.byte, sizeof (g_Beacon));
-
-  /* transmit data */
-  nRFCMD_CE (1);
-
-  /* wait for packet to be transmitted */
-  pmu_sleep_ms (2);
-
-  /* transmit data */
-  nRFCMD_CE (0);
-}
+//static void
+//nRF_tx (uint8_t power)
+//{
+//
+//  #ifdef ENCRYPT
+//  /* encrypt data */
+//  xxtea_encode (g_Beacon.block, XXTEA_BLOCK_COUNT, xxtea_key);
+//  #endif /* ENCRYPT */
+//
+//  /* set TX power */
+//  nRFAPI_SetTxPower (power & 0x3);
+//
+//  /* upload data to nRF24L01 */
+//  nRFAPI_TX (g_Beacon.byte, sizeof (g_Beacon));
+//
+//  /* transmit data */
+//  nRFCMD_CE (1);
+//
+//  /* wait for packet to be transmitted */
+//  pmu_sleep_ms (2);
+//
+//  /* transmit data */
+//  nRFCMD_CE (0);
+//}
 
 //static uint32_t
 //rnd (uint32_t range)
@@ -174,7 +176,7 @@ pin_init (void)
   GPIOSetDir (3, 2, 1);		//OUT
   GPIOSetValue (3, 2, 1);
 
-  LPC_IOCON->PIO1_11 = 0x80;	//FIXME
+  LPC_IOCON->PIO1_11 = 0x80;	//
   GPIOSetDir (1, 11, 1);	// OUT
   GPIOSetValue (1, 11, 0);
 
@@ -368,12 +370,12 @@ main (void)
   TFifoEntry fifo_buf[FIFO_DEPTH];
   int32_t acc_lowpass_x, acc_lowpass_y, acc_lowpass_z;
   int fifo_pos;
-  TFifoEntry *fifo;
+  //TFifoEntry *fifo;
 
   uint32_t SSPdiv;
   uint8_t cmd_buffer[64], cmd_pos, *cmd, c;
   uint8_t volatile *uart;
-  int8_t x, y, z;
+  //int8_t x, y, z;
   int firstrun_done, moving;
   volatile int t;
   int i;
@@ -526,138 +528,37 @@ main (void)
   bzero (&fifo_buf, sizeof (fifo_buf));
   firstrun_done = 0;
   moving = 0;
-  g_sequence = 0;
-  pressedCounter = 0;
+  //g_sequence = 0;
+  //pressedCounter = 0;
+
+  acc_power(1);
 
   while (1)
     {
       /* transmit every 100-200ms when moving or 1450-1550 ms while still */
-      pmu_sleep_ms (moving ? 50 : 1000);
+      pmu_sleep_ms (50);
 
       /* getting SPI back up again */
       LPC_SYSCON->SSPCLKDIV = SSPdiv;
 
-      // If both buttons are pressed for 3 seconds...
-      if (!GPIOGetValue (1, 4) && !GPIOGetValue(0, 1)) 
-      {
-          GPIOSetValue (1, 1, 1);//Light both leds.
-          GPIOSetValue (1, 2, 1);
-          while ((!GPIOGetValue (1, 4) && !GPIOGetValue(0, 1)) && pressedCounter < 30)
-          {
-              pmu_sleep_ms (100);
-              pressedCounter++;
-          }
-          if (pressedCounter == 30)
-          {
-              storage_erase ();//erase the flash
-              g_storage_items = 0;
-              blinkLed1And2 (10);//Blink to signal erasure end.
-              pressedCounter = 0;
-              NVIC_SystemReset();
-          }
-          GPIOSetValue (1, 1, 0);//Unlight both leds.
-          GPIOSetValue (1, 2, 0);
+      if (acc_source() & 0x01) {
+         blink(1);
+         acc_clear();
       }
-      else
-          pressedCounter = 0;
 
-      /* blink every 16th packet transmitted */
-      if (!moving || ((i & 0xf) == 0))
-	{
-	  /* turn on 3D acceleration sensor */
-	  acc_power (1);
-	  pmu_sleep_ms (20);
-	  /* read acceleration */
-	  acc_xyz_read (&x, &y, &z);
-	  /* power down acceleration sensor again */
-	  acc_power (0);
-
-	  /* only blink while moving */
-	  if (moving || !firstrun_done)
-	    {
-	      /* fire up LED */
-	      GPIOSetValue (1, 2, 1);
-	      /* wait till RX stops */
-	      pmu_sleep_ms (firstrun_done ? 2 : 100);
-	      /* turn LED off */
-	      GPIOSetValue (1, 2, 0);
-	    }
-	  /* second blink during initialization */
-	  if (!firstrun_done)
-	    {
-	      pmu_sleep_ms (100);
-	      /* fire up LED */
-	      GPIOSetValue (1, 2, 1);
-	      /* blink a second time during firstrun_done */
-	      pmu_sleep_ms (100);
-	      /* turn LED off */
-	      GPIOSetValue (1, 2, 0);
-	    }
-
-	  /* add new accelerometer values to lowpass */
-	  fifo = &fifo_buf[fifo_pos];
-	  fifo_pos = (fifo_pos+1) % FIFO_DEPTH;
-
-	  acc_lowpass_x += x - fifo->x;
-	  fifo->x = x;
-	  acc_lowpass_y += y - fifo->y;
-	  fifo->y = y;
-	  acc_lowpass_z += z - fifo->z;
-	  fifo->z = z;
-
-	  if (firstrun_done)
-	    {
-	      if ((abs (acc_lowpass_x / FIFO_DEPTH - x) >= ACC_THRESHOLD) ||
-		  (abs (acc_lowpass_y / FIFO_DEPTH - y) >= ACC_THRESHOLD) ||
-		  (abs (acc_lowpass_z / FIFO_DEPTH - z) >= ACC_THRESHOLD))
-		moving = 50;
-	      else if (moving)
-		moving--;
-	    }
-	  else
-	    /* make sure to initialize FIFO buffer first */
-	  if (!fifo_pos)
-	    firstrun_done = TRUE;
-
-	  /* powering up nRF24L01 */
-	  nRFAPI_SetRxMode (0);
-
-      if (firstrun_done && moving) {
-        /* log acceleration record */
-	bzero (&g_Log, sizeof (g_Log));
-        g_Log.time = htonl (LPC_TMR32B0->TC);
-        g_Log.acc_x = x - acc_lowpass_x / FIFO_DEPTH;
-        g_Log.acc_y = y - acc_lowpass_y / FIFO_DEPTH;
-        g_Log.acc_z = z - acc_lowpass_z / FIFO_DEPTH;
-        g_Log.status = moving;
-        g_Log.crc = crc8 (((uint8_t *) & g_Log), sizeof (g_Log) - sizeof (g_Log.crc));
-        /* store data if space left on FLASH */
-        if (g_storage_items < (LOGFILE_STORAGE_SIZE/sizeof (g_Log))) {
-          storage_write (g_storage_items * sizeof (g_Log), sizeof (g_Log), &g_Log);
-          /* increment and store RAM persistent storage position */
-          g_storage_items ++;
+      if (accel || moving > 0) {
+        if (accel) {
+//          acc_clear();
+          accel = 0;
+          moving = 10;
         }
+        if (moving > 0)
+	  moving--; 
+        blink(1);
       }
-
-	  /* prepare packet */
-	  bzero (&g_Beacon, sizeof (g_Beacon));
-	  g_Beacon.pkt.proto = RFBPROTO_BEACONTRACKER_EXT;
-	  g_Beacon.pkt.flags = moving ? RFBFLAGS_MOVING : 0;
-	  g_Beacon.pkt.oid = htons (tag_id);
-	  g_Beacon.pkt.p.tracker.strength = 3;
-	  g_Beacon.pkt.p.tracker.seq = htonl (LPC_TMR32B0->TC);
-	  g_Beacon.pkt.p.tracker.time = htons ((uint16_t)g_sequence++);
-	  g_Beacon.pkt.p.tracker.battery = 0;
-	  g_Beacon.pkt.crc = htons (
-	    crc16(g_Beacon.byte, sizeof (g_Beacon) - sizeof (g_Beacon.pkt.crc))
-	  );
-
-	  /* transmit packet */
-	  nRF_tx (g_Beacon.pkt.p.tracker.strength);
-	}
 
       /* powering down */
-      nRFAPI_PowerDown ();
+      //nRFAPI_PowerDown ();
       LPC_SYSCON->SSPCLKDIV = 0x00;
 
       /* increment counter */
