@@ -33,6 +33,8 @@ extern uint8_t acc_source (void);
 extern void acc_clear(void);
 extern void acc_status (void);
 extern void acc_xyz_read (int8_t *x, int8_t *y, int8_t *z);
+extern void acc_calibrate_offset( int16_t x, int16_t y, int16_t z );
+extern void acc_xyz_read10 (int16_t *x, int16_t *y, int16_t *z);
 
 extern uint8_t acc_IRQ(void);
 
